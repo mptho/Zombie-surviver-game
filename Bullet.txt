@@ -1,0 +1,78 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class Bullet : MonoBehaviour
+{
+    // Sát thương của viên đạn
+    public float damage;
+
+    // Số lần va chạm trước khi viên đạn bị hủy
+    public int per;
+
+    // Rigidbody của viên đạn
+    Rigidbody2D rigid;
+
+    void Awake()
+    {
+        // Khởi tạo rigidbody
+        rigid = GetComponent<Rigidbody2D>();  
+    }
+
+    // Phương thức khởi tạo viên đạn
+    public void Init(float damage, int per, Vector3 dir)
+    {
+        // Thiết lập thông số cho viên đạn
+        this.damage = damage;
+        this.per = per;
+
+        // Nếu per lớn hơn hoặc bằng 0, thì đặt vận tốc cho viên đạn
+        if (per >= 0)
+        {
+            rigid.velocity = dir * 15f;
+        }
+    }
+
+    // Xử lý khi viên đạn va chạm với collider khác
+    void OnTriggerEnter2D(Collider2D collision)
+    {
+        // Ghi log va chạm để kiểm tra
+        Debug.Log("Viên đạn va chạm với: " + collision.gameObject.name);
+
+        // Kiểm tra nếu va chạm không phải là kẻ địch hoặc viên đạn đã hết số lần va chạm
+        if (!collision.CompareTag("Enemy") || per == -100)
+            return;
+
+        // Giảm số lần va chạm còn lại của viên đạn
+        per--;
+
+        // Nếu số lần va chạm còn lại nhỏ hơn 0, thì dừng viên đạn và ẩn nó đi
+        if (per < 0)
+        {
+            rigid.velocity = Vector2.zero;
+            gameObject.SetActive(false);
+        }
+
+        // Kiểm tra xem đối tượng va chạm có phải là Boss không
+        if (collision.CompareTag("Boss"))
+        {
+            // Lấy tham chiếu đến component Boss
+            Boss boss = collision.gameObject.GetComponent<Boss>();
+            if (boss != null)
+            {
+                // Gọi phương thức OnDamaged của Boss và truyền giá trị sát thương
+                boss.OnDamaged(damage);
+            }
+        }
+    }
+
+    // Xử lý khi viên đạn ra khỏi collider
+    void OnTriggerExit2D(Collider2D collision)
+    {
+        // Nếu viên đạn ra khỏi khu vực hoặc đã hết số lần va chạm, thì ẩn viên đạn đi
+        if (!collision.CompareTag("Area") || per == -100)
+            return;
+
+        gameObject.SetActive(false);
+    }
+}

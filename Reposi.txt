@@ -1,0 +1,59 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class Reposition : MonoBehaviour
+{
+    Collider2D coll;
+
+    void Awake()
+    {
+        coll = GetComponent<Collider2D>();
+    }
+
+    void OnTriggerExit2D(Collider2D collision)
+    {
+        // Kiểm tra nếu không va chạm với "Area", thoát khỏi phương thức
+        if (!collision.CompareTag("Area"))
+            return;
+
+        // Lấy vị trí của người chơi và vị trí của đối tượng hiện tại
+        Vector3 playerPos = GameManager.Instance.player.transform.position;
+        Vector3 myPos = transform.position;
+
+        // Tính khoảng cách theo trục x và y giữa người chơi và đối tượng hiện tại
+        float diffX = Mathf.Abs(playerPos.x - myPos.x);
+        float diffY = Mathf.Abs(playerPos.y - myPos.y);
+
+        // Xác định hướng của người chơi
+        Vector3 playerDir = GameManager.Instance.player.inputVec;
+        float dirX = playerDir.x < 0 ? -1 : 1;
+        float dirY = playerDir.y < 0 ? -1 : 1;
+
+        // Xử lý di chuyển đối tượng khi rời khỏi vùng "Area" (vùng va chạm)
+        switch (transform.tag)
+        {
+            case "Ground":
+                // Nếu khoảng cách theo trục x lớn hơn khoảng cách theo trục y
+                if (diffX > diffY)
+                {
+                    // Di chuyển đối tượng sang trái hoặc phải tùy theo hướng di chuyển của người chơi
+                    transform.Translate(Vector3.right * dirX * 40);
+                }
+                else if (diffX < diffY)
+                {
+                    // Di chuyển đối tượng lên trên hoặc xuống dưới tùy theo hướng di chuyển của người chơi
+                    transform.Translate(Vector3.up * dirY * 40);
+                }
+                break;
+            case "Enemy":
+                // Nếu collider của đối tượng được kích hoạt
+                if (coll.enabled)
+                {
+                    // Di chuyển đối tượng theo hướng di chuyển của người chơi và thêm một lượng ngẫu nhiên
+                    transform.Translate(playerDir * 20 + new Vector3(Random.Range(-3f, 3f), Random.Range(-3f, 3f), 0f));
+                }
+                break;
+        }
+    }
+}

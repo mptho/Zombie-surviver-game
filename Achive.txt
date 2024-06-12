@@ -1,0 +1,105 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class AchiveManager : MonoBehaviour
+{
+    public GameObject[] lockCharacter; // Mảng các nhân vật bị khóa
+    public GameObject[] unlockCharacter; // Mảng các nhân vật đã mở khóa
+    public GameObject uiNotice; // Giao diện thông báo
+
+    enum Achive { UnlockPotato, UnlockBean } // Enum đại diện cho các thành tựu
+    Achive[] achives; // Mảng các thành tựu
+    WaitForSecondsRealtime wait; // Biến để chờ thời gian thực
+
+    void Awake()
+    {
+        // Lấy tất cả các giá trị của enum Achive
+        achives = (Achive[])Enum.GetValues(typeof(Achive));
+        wait = new WaitForSecondsRealtime(5); // Khởi tạo thời gian chờ 5 giây
+
+        // Nếu không có dữ liệu người chơi, khởi tạo dữ liệu ban đầu
+        if (!PlayerPrefs.HasKey("MyData"))
+        {
+            Init();
+        }
+    }
+
+    void Init()
+    {
+        PlayerPrefs.SetInt("MyData", 1); // Thiết lập dữ liệu ban đầu cho người chơi
+
+        // Khởi tạo giá trị cho tất cả các thành tựu
+        foreach (Achive achive in achives)
+        {
+            PlayerPrefs.SetInt(achive.ToString(), 0); // Đặt giá trị thành tựu thành 0 (chưa đạt được)
+        }
+    }
+
+    void Start()
+    {
+        UnlockCharacter(); // Gọi hàm mở khóa nhân vật khi bắt đầu
+    }
+
+    void UnlockCharacter()
+    {
+        // Kiểm tra và mở khóa nhân vật dựa trên thành tựu
+        for (int index = 0; index < lockCharacter.Length; index++)
+        {
+            string achiveName = achives[index].ToString();
+            bool isUnlock = PlayerPrefs.GetInt(achiveName) == 1; // Kiểm tra xem thành tựu đã đạt được chưa
+            lockCharacter[index].SetActive(!isUnlock); // Ẩn nhân vật bị khóa
+            unlockCharacter[index].SetActive(isUnlock); // Hiển thị nhân vật đã mở khóa
+        }
+    }
+
+    void LateUpdate()
+    {
+        // Kiểm tra các thành tựu trong mỗi khung hình
+        foreach (Achive achive in achives)
+        {
+            CheckAchive(achive);
+        }
+    }
+
+    void CheckAchive(Achive achive)
+    {
+        bool isAchive = false;
+
+        // Kiểm tra điều kiện để đạt được thành tựu
+        switch (achive)
+        {
+            case Achive.UnlockPotato:
+                isAchive = GameManager.Instance.kill > 10; // Thành tựu UnlockPotato đạt được khi giết hơn 10 kẻ địch
+                break;
+            case Achive.UnlockBean:
+                isAchive = GameManager.Instance.gameTime == GameManager.Instance.maxGameTime; // Thành tựu UnlockBean đạt được khi thời gian chơi đạt mức tối đa
+                break;
+        }
+
+        // Nếu thành tựu đạt được và chưa được ghi nhận
+        if (isAchive && PlayerPrefs.GetInt(achive.ToString()) == 0)
+        {
+            PlayerPrefs.SetInt(achive.ToString(), 1); // Ghi nhận thành tựu
+
+            // Hiển thị thông báo cho thành tựu đạt được
+            for (int index = 0; index < uiNotice.transform.childCount; index++)
+            {
+                bool isActive = index == (int)achive;
+                uiNotice.transform.GetChild(index).gameObject.SetActive(isActive);  
+            }
+
+            StartCoroutine(NoticeRoutine()); // Bắt đầu coroutine để hiển thị thông báo
+        }
+    }
+
+    IEnumerator NoticeRoutine()
+    {
+        uiNotice.SetActive(true); // Hiển thị thông báo
+        AudioManager.instance.PlaySfx(AudioManager.Sfx.LevelUp); // Phát âm thanh khi đạt được thành tựu
+        yield return wait; // Chờ 5 giây
+
+        uiNotice.SetActive(false); // Tắt thông báo
+    }
+}

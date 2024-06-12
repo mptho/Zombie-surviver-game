@@ -1,0 +1,142 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class Enemy : MonoBehaviour
+{
+    public float speed; // Tốc độ di chuyển của kẻ địch
+    public float health; // Mức sống hiện tại của kẻ địch
+    public float maxHealth; // Mức sống tối đa của kẻ địch
+    public RuntimeAnimatorController[] animCon; // Mảng chứa các bộ điều khiển hoạt hình
+    public Rigidbody2D target; // Rigidbody2D của mục tiêu (thường là người chơi)
+    public GameObject healPrefab; // Prefab của vật phẩm Heal
+
+    bool isLive; // Biểu thị trạng thái sống của kẻ địch
+
+    Rigidbody2D rigid;
+    Animator anim;
+    SpriteRenderer spriter;
+    WaitForFixedUpdate wait;
+    Collider2D coll;
+
+    void Awake()
+    {
+        // Lấy tham chiếu đến các thành phần cần thiết
+        rigid = GetComponent<Rigidbody2D>();
+        coll = GetComponent<Collider2D>();
+        anim = GetComponent<Animator>();
+        spriter = GetComponent<SpriteRenderer>();
+        wait = new WaitForFixedUpdate(); // Khởi tạo đối tượng WaitForFixedUpdate
+    }
+
+    void FixedUpdate()
+    {
+        // Kiểm tra trạng thái sống và trạng thái hiện tại của Animator
+        if (!GameManager.Instance.isLive || !isLive || anim.GetCurrentAnimatorStateInfo(0).IsName("Hit"))
+            return;
+
+        // Tính toán hướng di chuyển và di chuyển kẻ địch
+        Vector2 dirVec = target.position - rigid.position;
+        Vector2 nextVec = dirVec.normalized * speed * Time.fixedDeltaTime;
+        rigid.MovePosition(rigid.position + nextVec);
+        rigid.velocity = Vector2.zero;
+    }
+
+    void LateUpdate()
+    {
+        // Kiểm tra trạng thái sống của kẻ địch
+        if (!GameManager.Instance.isLive || !isLive)
+            return;
+
+        // Đảo ngược sprite của kẻ địch dựa trên vị trí của mục tiêu
+        spriter.flipX = target.position.x < rigid.position.x;
+    }
+
+    void OnEnable()
+    {
+        // Lấy tham chiếu đến mục tiêu và cài đặt trạng thái ban đầu
+        target = GameManager.Instance.player.GetComponent<Rigidbody2D>();
+        isLive = true;
+        coll.enabled = true;
+        rigid.simulated = true;
+        spriter.sortingOrder = 2;
+        anim.SetBool("Dead", false);
+        health = maxHealth;
+    }
+
+    public void Init(SpawnData data)
+    {
+        // Khởi tạo các thuộc tính của kẻ địch dựa trên dữ liệu SpawnData
+        anim.runtimeAnimatorController = animCon[data.spriteType];
+        speed = data.speed;
+        maxHealth = data.health;
+        health = data.health;
+    }
+
+    void OnTriggerEnter2D(Collider2D collision)
+    {
+        // Xử lý va chạm với đạn và giảm mức sống của kẻ địch
+        if (!collision.CompareTag("Bullet") || !isLive)
+            return;
+
+        health -= collision.GetComponent<Bullet>().damage;
+        StartCoroutine(KnockBack());
+
+        // Kiểm tra trạng thái sống của kẻ địch
+        if (health > 0)
+        {
+            // Nếu kẻ địch vẫn còn sống, chạy hiệu ứng khi bị tấn công và phát âm thanh
+            anim.SetTrigger("Hit");
+            AudioManager.instance.PlaySfx(AudioManager.Sfx.Hit);
+        }
+        else
+        {
+            // Nếu kẻ địch đã chết, thực hiện các thao tác liên quan đến việc kết thúc kẻ địch
+            isLive = false;
+            coll.enabled = false;
+            rigid.simulated = false;
+            spriter.sortingOrder = 1;
+            anim.SetBool("Dead", true);
+            GameManager.Instance.kill++;
+            GameManager.Instance.GetExp();
+            if (GameManager.Instance.isLive)
+                AudioManager.instance.PlaySfx(AudioManager.Sfx.Dead);
+            DropHeal();
+        }
+    }
+
+    void DropHeal()
+    {
+        // Kiểm tra xem có Prefab của vật phẩm hồi máu không
+        if (healPrefab != null)
+        {
+            // Tính tỉ lệ rơi của vật phẩm hồi máu
+            float dropChance = 0.02f;
+            float randomValue = Random.value;
+
+            // Nếu số ngẫu nhiên nhỏ hơn hoặc bằng tỉ lệ rơi, thả vật phẩm hồi máu
+            if (randomValue <= dropChance)
+            {
+                GameObject droppedHeal = Instantiate(healPrefab, transform.position, Quaternion.identity);
+                // Thực hiện các cài đặt khác cho vật phẩm hồi máu tại đây nếu cần
+            }
+        }
+    }
+
+    IEnumerator KnockBack()
+    {
+        // Chờ một khoảng thời gian
+        yield return wait;
+
+        // Tính hướng và đẩy lùi kẻ địch
+        Vector3 playerPos = GameManager.Instance.player.transform.position;
+        Vector3 dirVec = transform.position - playerPos;
+        rigid.AddForce(dirVec.normalized * 3, ForceMode2D.Impulse);
+    }
+
+    void Dead()
+    {
+        // Ẩn kẻ địch khi đã chết
+        gameObject.SetActive(false);
+    }
+}

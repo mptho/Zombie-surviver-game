@@ -1,0 +1,71 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class LevelUp : MonoBehaviour
+{
+    RectTransform rect; // Tham chiếu đến RectTransform của UI LevelUp
+    Item[] items; // Mảng chứa các mặt hàng trong UI LevelUp
+
+    void Awake()
+    {
+        rect = GetComponent<RectTransform>(); // Lấy tham chiếu đến RectTransform
+        items = GetComponentsInChildren<Item>(true); // Lấy tất cả các mặt hàng trong UI LevelUp
+    }
+
+    public void Show()
+    {    
+        Next(); // Hiển thị UI LevelUp
+        rect.localScale = Vector3.one; // Thiết lập tỉ lệ của UI LevelUp
+        GameManager.Instance.Stop(); // Dừng trò chơi khi hiển thị UI LevelUp
+        AudioManager.instance.PlaySfx(AudioManager.Sfx.LevelUp); // Phát âm thanh khi mở UI LevelUp
+        AudioManager.instance.EffectBgm(true); // Kích hoạt âm thanh nền đặc biệt khi mở UI LevelUp
+    }
+
+    public void Hide()
+    {
+        rect.localScale = Vector3.zero; // Ẩn UI LevelUp
+        GameManager.Instance.Resume(); // Tiếp tục trò chơi khi ẩn UI LevelUp
+        AudioManager.instance.PlaySfx(AudioManager.Sfx.Select); // Phát âm thanh khi đóng UI LevelUp
+        AudioManager.instance.EffectBgm(false); // Tắt âm thanh nền đặc biệt khi đóng UI LevelUp
+    }
+
+    public void Select(int index)
+    {
+        items[index].OnClick(); // Xử lý sự kiện khi chọn một mặt hàng trong UI LevelUp
+    }
+
+    void Next()
+    {
+        //1. Tắt tất cả các mặt hàng
+        foreach (Item item in items)
+        {
+            item.gameObject.SetActive(false);
+        }
+        //2. Chọn ngẫu nhiên 3 mặt hàng mới
+        int[] ran = new int[3];
+        while (true)
+        {
+            ran[0] = Random.Range(0, items.Length);
+            ran[1] = Random.Range(0, items.Length);
+            ran[2] = Random.Range(0, items.Length);
+
+            if (ran[0] != ran[1] && ran[1] != ran[2] && ran[0] != ran[2])
+                break;
+        }
+
+        //3. Hiển thị các mặt hàng mới và kiểm tra nếu mặt hàng đã đạt cấp độ tối đa
+        for (int index = 0; index < ran.Length; index++)
+        {
+            Item ranItem = items[ran[index]];
+            if (ranItem.level == ranItem.data.damages.Length)
+            {
+                items[4].gameObject.SetActive(true); // Nếu mặt hàng đã đạt cấp độ tối đa, hiển thị mặt hàng cuối cùng (nút Skip)
+            }
+            else
+            {
+                ranItem.gameObject.SetActive(true); // Hiển thị mặt hàng mới
+            }
+        }
+    }
+}

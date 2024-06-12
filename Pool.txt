@@ -1,0 +1,53 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class PoolManager : MonoBehaviour
+{
+    public GameObject[] prefabs; // Mảng chứa các prefab để tạo pool
+
+    List<GameObject>[] pools; // Mảng danh sách chứa pool các đối tượng
+
+    void Awake()
+    {
+        pools = new List<GameObject>[prefabs.Length]; // Khởi tạo mảng pools với kích thước bằng kích thước của mảng prefabs
+
+        // Duyệt qua mảng pools và tạo danh sách rỗng cho mỗi loại prefab
+        for (int index = 0; index < pools.Length; index++)
+        {
+            pools[index] = new List<GameObject>();
+        }
+    }
+
+    // Phương thức để lấy đối tượng từ pool
+    public GameObject Get(int index)
+    {
+        GameObject selectedObject = null;
+
+        // Duyệt qua danh sách đối tượng của loại prefab tương ứng
+        foreach (GameObject item in pools[index])
+        {
+            // Kiểm tra nếu đối tượng không hoạt động (không được sử dụng)
+            if (!item.activeSelf)
+            {
+                // Chọn đối tượng không hoạt động để tái sử dụng
+                selectedObject = item;
+                // Kích hoạt đối tượng đã chọn
+                selectedObject.SetActive(true);
+                // Thoát khỏi vòng lặp
+                break;
+            }
+        }
+
+        // Nếu không có đối tượng nào trong pool, tạo một đối tượng mới
+        if (!selectedObject)
+        {
+            selectedObject = Instantiate(prefabs[index], transform);
+            // Thêm đối tượng mới vào pool
+            pools[index].Add(selectedObject);
+        }
+
+        // Trả về đối tượng đã chọn từ pool
+        return selectedObject;
+    }
+}

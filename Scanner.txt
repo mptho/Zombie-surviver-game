@@ -1,0 +1,41 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class Scanner : MonoBehaviour
+{
+    public float scanRange; // Phạm vi quét
+    public LayerMask targetLayer; // Layer của các đối tượng cần quét
+    public RaycastHit2D[] targets; // Mảng chứa các đối tượng được quét
+    public Transform nearestTarget; // Đối tượng gần nhất
+
+    void FixedUpdate()
+    {
+        // Thực hiện quét các đối tượng trong phạm vi quét và lưu vào mảng targets
+        targets = Physics2D.CircleCastAll(transform.position, scanRange, Vector2.zero, 0, targetLayer);
+        // Tìm đối tượng gần nhất
+        nearestTarget = GetNearest();
+    }
+
+    Transform GetNearest()
+    {
+        Transform result = null;
+        float minDistance = Mathf.Infinity; // Đặt khoảng cách tối thiểu ban đầu là vô cực
+
+        // Duyệt qua mảng các đối tượng được quét
+        foreach (RaycastHit2D target in targets)
+        {
+            // Tính khoảng cách giữa vị trí của Scanner và vị trí của đối tượng hiện tại
+            float distance = Vector3.Distance(transform.position, target.transform.position);
+
+            // Nếu khoảng cách này nhỏ hơn khoảng cách nhỏ nhất đã biết, cập nhật đối tượng gần nhất và khoảng cách nhỏ nhất
+            if (distance < minDistance)
+            {
+                minDistance = distance;
+                result = target.transform;
+            }
+        }
+
+        return result; // Trả về đối tượng gần nhất sau khi duyệt qua tất cả các đối tượng được quét
+    }
+}

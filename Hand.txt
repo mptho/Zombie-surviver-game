@@ -1,0 +1,43 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class Hand : MonoBehaviour
+{
+    public bool isLeft; // Xác định xem tay này là tay trái hay tay phải
+    public SpriteRenderer spriter; // Tham chiếu đến SpriteRenderer của tay
+
+    SpriteRenderer player; // Tham chiếu đến SpriteRenderer của người chơi
+
+    Vector3 rightPos = new Vector3(0.35f, -0.15f, 0); // Vị trí tay phải
+    Vector3 rightPosReverse = new Vector3(-0.15f, -0.15f, 0); // Vị trí tay phải khi bị đảo ngược
+    Quaternion leftRot = Quaternion.Euler(0, 0, -35); // Góc quay của tay trái
+    Quaternion leftRotReverse = Quaternion.Euler(0, 0, -135); // Góc quay của tay trái khi bị đảo ngược
+
+    void Awake()
+    {
+        // Lấy tham chiếu đến SpriteRenderer của người chơi từ các thành phần cha
+        player = GetComponentsInParent<SpriteRenderer>()[1];
+    }
+
+    void LateUpdate()
+    {
+        bool isReverse = player.flipX; // Kiểm tra xem người chơi có bị đảo ngược không
+
+        // Nếu là tay trái
+        if (isLeft)
+        {
+            // Đặt góc quay và đảo ngược hình ảnh của tay trái tùy thuộc vào hướng của người chơi
+            transform.localRotation = isReverse ? leftRotReverse : leftRot;
+            spriter.flipY = isReverse; // Đảo ngược hình ảnh của tay trái tùy thuộc vào hướng của người chơi
+            spriter.sortingOrder = isReverse ? 4 : 6; // Đặt thứ tự sắp xếp tầng của tay trái tùy thuộc vào hướng của người chơi
+        }
+        else // Nếu là tay phải
+        {
+            // Đặt vị trí của tay phải và đảo ngược hình ảnh của nó tùy thuộc vào hướng của người chơi
+            transform.localPosition = isReverse ? rightPosReverse : rightPos;
+            spriter.flipX = isReverse; // Đảo ngược hình ảnh của tay phải tùy thuộc vào hướng của người chơi
+            spriter.sortingOrder = isReverse ? 6 : 4; // Đặt thứ tự sắp xếp tầng của tay phải tùy thuộc vào hướng của người chơi
+        }
+    }
+}

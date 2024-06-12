@@ -1,0 +1,74 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class Gear : MonoBehaviour
+{
+    public ItemData.ItemType type; // Loại trang bị
+    public float rate; // Tỷ lệ hiệu ứng trang bị
+
+    // Khởi tạo trang bị từ dữ liệu vật phẩm
+    public void Init(ItemData data)
+    {
+        // Thiết lập cơ bản
+        name = "Gear" + data.itemId; // Đặt tên cho trang bị
+        transform.parent = GameManager.Instance.player.transform; // Đặt cha là người chơi
+        transform.localPosition = Vector3.zero; // Đặt vị trí trang bị là (0,0,0)
+
+        // Thiết lập thuộc tính
+        type = data.itemType; // Đặt loại trang bị từ dữ liệu vật phẩm
+        rate = data.damages[0]; // Lấy tỷ lệ sát thương từ dữ liệu vật phẩm
+
+        ApplyGear(); // Áp dụng trang bị
+    }
+
+    // Hàm nâng cấp trang bị
+    public void LevelUp(float rate)
+    {
+        this.rate = rate; // Cập nhật tỷ lệ hiệu ứng của trang bị
+        ApplyGear(); // Áp dụng trang bị
+    }
+
+    // Hàm áp dụng hiệu ứng của trang bị
+    void ApplyGear()
+    {
+        switch (type)
+        {
+            case ItemData.ItemType.Glove:
+                RateUp(); // Nâng cấp tỷ lệ sát thương
+                break;
+            case ItemData.ItemType.Shoe:
+                SpeedUp(); // Nâng cấp tốc độ
+                break;
+        }
+    }
+
+    // Hàm nâng cấp tỷ lệ sát thương của vũ khí
+    void RateUp()
+    {
+        Weapon[] weapons = transform.parent.GetComponentsInChildren<Weapon>(); // Lấy danh sách vũ khí của người chơi
+
+        foreach (Weapon weapon in weapons)
+        {
+            switch (weapon.id)
+            {
+                case 0: // ID của vũ khí đầu tiên (VD: găng tay)
+                    float speed = 150 * Character.WeaponSpeed; // Tốc độ cơ bản của vũ khí
+                    weapon.speed = speed + (speed * rate); // Áp dụng tỷ lệ tăng tốc độ
+                    break;
+                default: // Các vũ khí khác
+                    speed = 0.5f * Character.WeaponRate; // Tốc độ cơ bản của vũ khí
+                    weapon.speed = speed * (1f - rate); // Áp dụng tỷ lệ tăng tốc độ
+                    break;
+            }
+        }
+    }
+
+    // Hàm nâng cấp tốc độ của người chơi
+    void SpeedUp()
+    {
+        float speed = 3 * Character.Speed; // Tốc độ cơ bản của người chơi
+        GameManager.Instance.player.speed = speed + speed * rate; // Áp dụng tỷ lệ tăng tốc độ
+    }
+}

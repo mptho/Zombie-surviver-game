@@ -1,0 +1,153 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class Weapon : MonoBehaviour
+{
+    public int id; // ID của vũ khí
+    public int prefabId; // ID của prefab
+    public float damage; // Sát thương
+    public int count; // Số lượng viên đạn
+    public float speed; // Tốc độ bắn
+    Player player; // Tham chiếu đến Player
+
+    float timer; // Thời gian đếm
+
+    void Awake()
+    {
+        player = GameManager.Instance.player; // Lấy tham chiếu đến Player từ GameManager
+    }
+
+    void Update()
+    {
+        if (!GameManager.Instance.isLive)
+            return;
+
+        // Cập nhật vòng lặp dựa trên ID của vũ khí
+        switch (id)
+        {
+            case 0:
+                // Quay vũ khí (nếu có)
+                transform.Rotate(Vector3.back * speed * Time.deltaTime);
+                break;
+            default:
+                // Bắn đạn
+                timer += Time.deltaTime;
+
+                if (timer > speed)
+                {
+                    timer = 0f;
+                    Fire();
+                }
+                break;
+        }
+
+        // Test code (bạn có thể xóa sau khi đã hoàn thành)
+        if (Input.GetButtonDown("Jump"))
+        {
+            LevelUp(20, 1);
+        }
+    }
+
+    // Phương thức nâng cấp vũ khí
+    public void LevelUp(float damage, int count)
+    {
+        this.damage = damage * Character.Damage;
+        this.count += count;
+        if (id == 0)
+            Batch();
+
+        // Áp dụng trang bị mới cho Player
+        player.BroadcastMessage("ApplyGear", SendMessageOptions.DontRequireReceiver);
+    }
+
+    // Khởi tạo vũ khí từ dữ liệu của ItemData
+    public void Init(ItemData data)
+    {
+        // Thiết lập cơ bản
+        name = "Weapon" + data.itemId;
+        transform.parent = player.transform;
+        transform.localPosition = Vector3.zero;
+
+        // Thiết lập thuộc tính
+        id = data.itemId;
+        damage = data.baseDamage * Character.Damage;
+        count = data.baseCount + Character.Count;
+
+        // Xác định prefabId dựa trên projectile của ItemData
+        for (int index = 0; index < GameManager.Instance.pool.prefabs.Length; index++)
+        {
+            if (data.projectile == GameManager.Instance.pool.prefabs[index])
+            {
+                prefabId = index;
+                break;
+            }
+        }
+
+        // Thiết lập tốc độ và phân loại vũ khí
+        switch (id)
+        {
+            case 0:
+                speed = 150 * Character.WeaponSpeed;
+                Batch();
+                break;
+            default:
+                speed = 0.5f * Character.WeaponRate;
+                break;
+        }
+
+        // Thiết lập Hand cho Player
+        Hand hand = player.hands[(int)data.itemType];
+        hand.spriter.sprite = data.hand;
+        hand.gameObject.SetActive(true);
+
+        // Áp dụng trang bị mới cho Player
+        player.BroadcastMessage("ApplyGear", SendMessageOptions.DontRequireReceiver);
+    }
+
+    // Phương thức tạo ra viên đạn
+    void Batch()
+    {
+        for (int index = 0; index < count; index++)
+        {
+            Transform bullet;
+            if (index < transform.childCount)
+            {
+                bullet = transform.GetChild(index);
+            }
+            else
+            {
+                bullet = GameManager.Instance.pool.Get(prefabId).transform;
+            }
+            bullet.parent = transform;
+            bullet.localPosition = Vector3.zero;
+            bullet.localRotation = Quaternion.identity;
+            Vector3 rotvec = Vector3.forward * 360 * index / count;
+            bullet.Rotate(rotvec);
+            bullet.Translate(bullet.up * 1.5f, Space.World);
+            bullet.GetComponent<Bullet>().Init(damage, -100, Vector3.zero);
+        }
+    }
+
+    // Phương thức bắn đạn
+    void Fire()
+    {
+        // Kiểm tra xem có mục tiêu gần nhất không
+        if (!player.scanner.nearestTarget)
+            return;
+
+        // Xác định hướng bắn
+        Vector3 targetPos = player.scanner.nearestTarget.position;
+        Vector3 dir = targetPos - transform.position;
+        dir = dir.normalized;
+
+        // Tạo ra viên đạn và khởi tạo nó
+        Transform bullet = GameManager.Instance.pool.Get(prefabId).transform;
+        bullet.position = transform.position;
+        bullet.rotation = Quaternion.FromToRotation(Vector3.up, dir);
+        bullet.GetComponent<Bullet>().Init(damage, count, dir);
+
+        // Phát âm thanh bắn
+        AudioManager.instance.PlaySfx(AudioManager.Sfx.Range);
+    }
+}

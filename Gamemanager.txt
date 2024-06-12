@@ -1,0 +1,207 @@
+using System.Collections;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+public class GameManager : MonoBehaviour
+{
+    public static GameManager Instance; // Thể hiện của lớp GameManager
+
+    [Header("# Game Control")] // Tiêu đề cho phần kiểm soát trò chơi
+    public bool isLive; // Biến kiểm tra trạng thái trò chơi
+    public float gameTime; // Thời gian chơi hiện tại
+    public float maxGameTime = 2 * 10f; // Thời gian tối đa của một trò chơi
+
+    [Header("# Player Info")] // Tiêu đề cho thông tin người chơi
+    public int playerId; // ID của người chơi
+    public float health; // Mức độ sức khỏe của người chơi
+    public float maxHealth = 100; // Sức khỏe tối đa của người chơi
+    public int level; // Cấp độ của người chơi
+    public int kill; // Số quái vật đã tiêu diệt
+    public int exp; // Điểm kinh nghiệm của người chơi
+    public int[] nextExp = { 3, 5, 10, 100, 150, 210, 280, 360, 450, 600 }; // Mảng chứa điểm kinh nghiệm cần để lên cấp tiếp theo
+
+    [Header("# Game Objects")] // Tiêu đề cho các đối tượng trong trò chơi
+    public PoolManager pool; // Quản lý Pool
+    public Player player; // Người chơi
+    public LevelUp uilevelUp; // Giao diện cập nhật cấp độ
+    public Result uiResult; // Giao diện kết quả
+    public GameObject enemyCleaner; // Đối tượng dọn dẹp quái vật
+
+    [Header("# Boss Settings")] // Cài đặt cho Boss
+    public GameObject bossPrefab; // Prefab của Boss
+    private GameObject bossInstance; // Tham chiếu đến đối tượng Boss trong game
+    bool hasClearedEnemies = false; // Biến kiểm tra xem đã xóa hết quái vật chưa
+    bool bossSpawned = false; // Biến kiểm tra xem Boss đã được xuất hiện chưa
+    public float delayTime; // Thời gian trễ trước khi Boss xuất hiện
+    public bool allowExpGain = true; // Cho phép người chơi nhận điểm kinh nghiệm
+    public Spawner spawner; // Spawner quái vật
+
+    void Awake()
+    {
+        Instance = this; // Gán thể hiện của GameManager
+    }
+
+    public void GameStart(int id)
+    {
+        playerId = id; // Thiết lập ID của người chơi
+        health = maxHealth; // Thiết lập sức khỏe ban đầu của người chơi
+        player.gameObject.SetActive(true); // Kích hoạt người chơi
+        uilevelUp.Select(playerId % 2); // Chọn giao diện cập nhật cấp độ
+        Resume(); // Tiếp tục trò chơi
+
+        AudioManager.instance.PlayBgm(true); // Phát nhạc nền
+        AudioManager.instance.PlaySfx(AudioManager.Sfx.Select); // Phát âm thanh chọn
+    }
+
+    public void GameOver()
+    {
+        StartCoroutine(GameOverRoutine()); // Bắt đầu quy trình kết thúc trò chơi
+    }
+
+    IEnumerator GameOverRoutine()
+    {
+        isLive = false; // Đánh dấu trò chơi đã kết thúc
+
+        yield return new WaitForSeconds(0.5f);
+
+        uiResult.gameObject.SetActive(true); // Hiển thị giao diện kết quả
+        uiResult.Lose(); // Gọi hàm thất bại trong giao diện kết quả
+        Stop(); // Dừng trò chơi
+
+        AudioManager.instance.PlayBgm(false); // Tắt nhạc nền
+        AudioManager.instance.PlaySfx(AudioManager.Sfx.Lose); // Phát âm thanh thất bại
+    }
+
+    public void GameVictory()
+    {
+        if (isLive) // Kiểm tra nếu trò chơi vẫn còn sống
+        {
+            StartCoroutine(GameVictoryRoutine()); // Bắt đầu quy trình chiến thắng trò chơi
+        }
+    }
+
+    IEnumerator GameVictoryRoutine()
+    {
+        isLive = false; // Đánh dấu trò chơi đã kết thúc
+        enemyCleaner.SetActive(true); // Kích hoạt đối tượng dọn dẹp quái vật
+
+        yield return new WaitForSeconds(0.5f);
+
+        uiResult.gameObject.SetActive(true); // Hiển thị giao diện kết quả
+        uiResult.Win(); // Gọi hàm chiến thắng trong giao diện kết quả
+        Stop(); // Dừng trò chơi
+
+        AudioManager.instance.PlayBgm(false); // Tắt nhạc nền
+        AudioManager.instance.PlaySfx(AudioManager.Sfx.Win); // Phát âm thanh chiến thắng
+    }
+
+    public void GameRetry()
+    {
+        // Đặt lại trạng thái của trò chơi
+        isLive = true;
+        gameTime = 0;
+        health = maxHealth;
+        level = 0;
+        kill = 0;
+        exp = 0;
+
+        // Ẩn giao diện kết quả
+        uiResult.gameObject.SetActive(false);
+
+        // Tải lại cảnh
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+    }
+
+    void Update()
+    {
+        if (!isLive)
+            return;
+
+        // Chỉ cập nhật gameTime nếu nó nhỏ hơn maxGameTime
+        if (gameTime < maxGameTime)
+        {
+            gameTime += Time.deltaTime;
+        }
+
+        if (gameTime >= maxGameTime && !hasClearedEnemies)
+        {
+            gameTime = maxGameTime; // Đảm bảo gameTime không vượt quá maxGameTime
+            hasClearedEnemies = true; // Đảm bảo khối này chạy chỉ một lần
+            ClearEnemies(); // Xóa tất cả quái vật
+            DisableSpawner(); // Vô hiệu hóa spawner
+        }
+
+        if (hasClearedEnemies && delayTime > 0)
+        {
+            delayTime -= Time.deltaTime; // Giảm thời gian trễ
+        }
+
+        if (delayTime <= 0 && !bossSpawned)
+        {
+            SpawnBoss(); // Xuất hiện Boss
+            bossSpawned = true; // Đánh dấu Boss đã xuất hiện
+        }
+    }
+
+    private void DisableSpawner()
+    {
+        if (spawner != null)
+        {
+            spawner.Activate(false); // Vô hiệu hóa spawner
+        }
+    }
+
+    public void GetExp()
+    {
+        if (!isLive || !allowExpGain)
+            return;
+
+        exp++; // Tăng điểm kinh nghiệm
+
+        if (exp == nextExp[Mathf.Min(level, nextExp.Length - 1)])
+        {
+            level++; // Tăng cấp độ
+            exp = 0; // Đặt lại điểm kinh nghiệm
+            uilevelUp.Show(); // Hiển thị cập nhật cấp độ trên giao diện
+        }
+    }
+
+    public void Stop()
+    {
+        isLive = false; // Dừng trò chơi
+        Time.timeScale = 0; // Dừng thời gian
+    }
+
+    public void Pause()
+    {
+        Time.timeScale = 0; // Dừng thời gian
+    }
+
+    public void Resume()
+    {
+        isLive = true; // Tiếp tục trò chơi
+        Time.timeScale = 1; // Tiếp tục thời gian
+    }
+
+    private void ClearEnemies()
+    {
+        allowExpGain = false; // Ngăn người chơi nhận điểm kinh nghiệm
+        // Xóa tất cả quái vật trên màn hình
+        Enemy[] enemies = FindObjectsOfType<Enemy>();
+        if (enemies != null && enemies.Length > 0)
+        {
+            foreach (Enemy enemy in enemies)
+            {
+                enemyCleaner.SetActive(true); // Kích hoạt đối tượng dọn dẹp quái vật
+            }
+        }
+    }
+
+    private void SpawnBoss()
+    {
+        if (bossPrefab != null && bossInstance == null)
+        {
+            bossInstance = Instantiate(bossPrefab, new Vector3(0, 0, 0), Quaternion.identity); // Xuất hiện Boss
+        }
+    }
+}

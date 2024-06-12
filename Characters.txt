@@ -1,0 +1,8 @@
+Đoạn mã này định nghĩa một lớp Character chứa các thuộc tính tĩnh để xác định các thuộc tính khác nhau của nhân vật dựa trên playerId được xác định bởi GameManager.Instance.playerId. Dưới đây là phần giải thích:
+
+Speed: Tốc độ di chuyển của nhân vật. Nếu playerId là 0, tốc độ sẽ là 1.1, nếu không sẽ là 1.0.
+WeaponSpeed: Tốc độ tấn công của vũ khí. Nếu playerId là 1, tốc độ sẽ là 1.1, nếu không sẽ là 1.0.
+WeaponRate: Tốc độ tấn công của vũ khí, tỷ lệ so với tốc độ mặc định. Nếu playerId là 1, tốc độ sẽ là 0.9, nếu không sẽ là 1.0.
+Damage: Sát thương gây ra bởi nhân vật. Nếu playerId là 2, sát thương sẽ là 1.2, nếu không sẽ là 1.0.
+Count: Số lượng của nhân vật. Nếu playerId là 3, số lượng sẽ là 1, nếu không sẽ là 0.
+Mỗi thuộc tính sử dụng GameManager.Instance.playerId để xác định giá trị của playerId và trả về giá trị tương ứng với playerId đó. Điều này giúp linh hoạt điều chỉnh các thuộc tính của nhân vật dựa trên điều kiện của trò chơi.

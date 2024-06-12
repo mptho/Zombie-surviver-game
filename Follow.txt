@@ -1,0 +1,19 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class Follow : MonoBehaviour
+{
+    RectTransform react; // Tham chiếu đến RectTransform của đối tượng
+
+    void Awake()
+    {
+        react = GetComponent<RectTransform>(); // Lấy tham chiếu đến RectTransform
+    }
+
+    void FixedUpdate()
+    {
+        // Chuyển đổi vị trí thế giới của người chơi thành vị trí trên màn hình và gán cho RectTransform
+        react.position = Camera.main.WorldToScreenPoint(GameManager.Instance.player.transform.position);
+    }
+}

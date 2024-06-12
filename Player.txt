@@ -1,0 +1,151 @@
+using System.Collections;
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+public class Player : MonoBehaviour
+{
+    public Vector2 inputVec; // Vector đầu vào từ bàn phím hoặc thiết bị đầu vào khác
+    public float speed; // Tốc độ di chuyển của người chơi
+    public Scanner scanner; // Tham chiếu đến máy quét của người chơi
+    public Hand[] hands; // Mảng chứa các tay của người chơi
+    public RuntimeAnimatorController[] animCon; // Mảng chứa bộ điều khiển hoạt cảnh chạy của người chơi
+
+    private bool isNearHeal; // Biến để kiểm tra xem người chơi có ở gần vật phẩm hồi máu không
+    private GameObject currentHealItem; // Tham chiếu đến vật phẩm hồi máu hiện tại mà người chơi ở gần
+    private Coroutine destroyHealItemCoroutine; // Coroutine để hủy bỏ vật phẩm hồi máu nếu không được nhặt
+
+    Rigidbody2D rigid; // Tham chiếu đến Rigidbody2D của người chơi
+    SpriteRenderer spriter; // Tham chiếu đến SpriteRenderer của người chơi
+    Animator anim; // Tham chiếu đến Animator của người chơi
+
+    void Awake()
+    {
+        // Khởi tạo các tham chiếu
+        rigid = GetComponent<Rigidbody2D>();
+        spriter = GetComponent<SpriteRenderer>();
+        anim = GetComponent<Animator>();
+        scanner = GetComponent<Scanner>();
+        hands = GetComponentsInChildren<Hand>(true);
+    }
+
+    void OnEnable()
+    {
+        // Đặt tốc độ dựa trên thuộc tính của nhân vật
+        speed *= Character.Speed;
+        // Đặt bộ điều khiển hoạt cảnh chạy dựa trên ID của người chơi
+        anim.runtimeAnimatorController = animCon[GameManager.Instance.playerId];
+    }
+
+    void Update()
+    {
+        // Lấy đầu vào từ bàn phím hoặc thiết bị đầu vào khác
+        inputVec.x = Input.GetAxis("Horizontal");
+        inputVec.y = Input.GetAxis("Vertical");
+
+        // Xử lý nhận vật phẩm hồi máu
+        if (isNearHeal && Input.GetKeyDown(KeyCode.E))
+        {
+            PickUpHeal();
+            CancelDestroyHealItem(); // Người chơi đã nhặt vật phẩm, hủy bỏ coroutine để hủy bỏ vật phẩm
+        }
+    }
+
+    void FixedUpdate()
+    {
+        // Di chuyển người chơi dựa trên đầu vào
+        Vector2 nextVec = inputVec.normalized * speed * Time.fixedDeltaTime;
+        rigid.MovePosition(rigid.position + nextVec);
+    }
+
+    void LateUpdate()
+    {
+        // Cập nhật hoạt cảnh chạy dựa trên đầu vào
+        anim.SetFloat("Speed", inputVec.magnitude);
+
+        // Đảo hình ảnh của nhân vật nếu cần
+        if (inputVec.x != 0)
+        {
+            spriter.flipX = inputVec.x < 0;
+        }
+    }
+
+    void OnCollisionStay2D(Collision2D collision)
+    {
+        // Giảm máu nếu va chạm với vật thể khác
+        GameManager.Instance.health -= Time.deltaTime * 10;
+
+        // Xử lý game over nếu máu hết
+        if (GameManager.Instance.health < 0)
+        {
+            // Tắt các tay của nhân vật
+            for (int index = 2; index < transform.childCount; index++)
+            {
+                transform.GetChild(index).gameObject.SetActive(false);
+            }
+            // Chuyển sang hoạt cảnh chết
+            anim.SetTrigger("Dead");
+            // Gọi hàm kết thúc trò chơi
+            GameManager.Instance.GameOver();
+        }
+    }
+
+    void OnTriggerEnter2D(Collider2D other)
+    {
+        // Xử lý khi gặp vật phẩm hồi máu
+        if (other.CompareTag("Heal"))
+        {
+            isNearHeal = true;
+            currentHealItem = other.gameObject;
+            StartDestroyHealItemCoroutine(); // Bắt đầu coroutine để hủy bỏ vật phẩm hồi máu nếu không được nhặt
+        }
+    }
+
+    void OnTriggerExit2D(Collider2D other)
+    {
+        // Xử lý khi rời khỏi vùng chứa vật phẩm hồi máu
+        if (other.CompareTag("Heal"))
+        {
+            isNearHeal = false;
+            currentHealItem = null;
+            CancelDestroyHealItem(); // Người chơi đã rời khỏi vùng trigger của vật phẩm, h
+ }
+    }
+
+    void StartDestroyHealItemCoroutine()
+    {
+        // Bắt đầu coroutine để hủy bỏ vật phẩm hồi máu nếu không nhặt sau một khoảng thời gian
+        destroyHealItemCoroutine = StartCoroutine(DestroyHealItemAfterDelay());
+    }
+
+    void CancelDestroyHealItem()
+    {
+        // Hủy bỏ coroutine nếu người chơi đã nhặt vật phẩm hồi máu
+        if (destroyHealItemCoroutine != null)
+        {
+            StopCoroutine(destroyHealItemCoroutine);
+        }
+    }
+
+    IEnumerator DestroyHealItemAfterDelay()
+    {
+        // Thời gian tồn tại của vật phẩm hồi máu nếu không được nhặt
+        yield return new WaitForSeconds(10f);
+
+        // Kiểm tra xem vật phẩm hồi máu vẫn còn tồn tại và người chơi không nhặt nó
+        if (currentHealItem != null && !Input.GetKeyDown(KeyCode.E))
+        {
+            // Hủy bỏ vật phẩm hồi máu
+            Destroy(currentHealItem);
+        }
+    }
+
+    void PickUpHeal()
+    {
+        // Tăng máu của người chơi khi nhặt vật phẩm hồi máu
+        GameManager.Instance.health += 20;
+        // Đảm bảo máu không vượt quá giới hạn tối đa
+        GameManager.Instance.health = Mathf.Clamp(GameManager.Instance.health, 0, GameManager.Instance.maxHealth);
+        // Hủy bỏ vật phẩm hồi máu đã nhặt
+        Destroy(currentHealItem);
+    }
+}

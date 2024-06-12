@@ -1,0 +1,272 @@
+using System.Collections;
+using UnityEngine;
+
+// Khai báo enum BossState bên ngoài lớp Boss
+public enum BossState
+{
+    Idle,        // Trạng thái nhàn rỗi
+    Attacking,   // Trạng thái tấn công
+    UsingSkill,  // Trạng thái sử dụng kỹ năng
+    TakingHit,   // Trạng thái bị tấn công
+    Dead         // Trạng thái chết
+}
+
+public class Boss : MonoBehaviour
+{
+    public RuntimeAnimatorController[] animCon; // Mảng các bộ điều khiển animator
+    public float skillCooldown = 8f; // Thời gian hồi kỹ năng
+    public int randomStatThreshold = 50; // Ngưỡng ngẫu nhiên để kích hoạt kỹ năng
+    public float rushForce = 3f; // Lực lao tới
+    public float health = 100; // Sức khỏe hiện tại
+    public float maxHealth = 100; // Sức khỏe tối đa
+    public float moveSpeed = 2f; // Tốc độ di chuyển
+    public Rigidbody2D target; // Mục tiêu của boss
+
+    private bool isLive = true; // Trạng thái sống của boss
+    private bool isAttacking = false; // Trạng thái tấn công của boss
+    private bool useSkill = false; // Trạng thái sử dụng kỹ năng của boss
+
+    private Rigidbody2D rigid; // Đối tượng Rigidbody2D của boss
+    private Animator anim; // Đối tượng Animator của boss
+    private SpriteRenderer sprite; // Đối tượng SpriteRenderer của boss
+    private Collider2D coll; // Đối tượng Collider2D của boss
+    private BossState currentState; // Trạng thái hiện tại của boss
+
+    void Awake()
+    {
+        coll = GetComponent<Collider2D>();
+        rigid = GetComponent<Rigidbody2D>();
+        anim = GetComponent<Animator>();
+        sprite = GetComponent<SpriteRenderer>();
+        target = GameManager.Instance.player.GetComponent<Rigidbody2D>();
+    }
+
+    void Start()
+    {
+        health = maxHealth;
+        currentState = BossState.Idle; // Đặt trạng thái ban đầu của boss là nhàn rỗi
+    }
+
+    void FixedUpdate()
+    {
+        if (!isLive || !GameManager.Instance.isLive)
+            return;
+
+        Vector2 dirVec = target.position - rigid.position;
+        if (!useSkill && dirVec.magnitude < 10)
+        {
+            float randValue = Random.Range(0, 100f);
+            if (randValue < randomStatThreshold)
+            {
+                Skill1();
+            }
+            else
+            {
+                Skill2();
+            }
+        }
+        else if (useSkill && isAttacking)
+        {
+            rigid.velocity = Vector2.zero;
+        }
+        else if (!isAttacking)
+        {
+            Vector2 nextVec = dirVec.normalized * moveSpeed * Time.fixedDeltaTime;
+            rigid.MovePosition(rigid.position + nextVec);
+            rigid.velocity = Vector2.zero;
+        }
+    }
+
+    void LateUpdate()
+    {
+        sprite.flipX = target.position.x < rigid.position.x; // Đảo ngược sprite dựa trên vị trí của mục tiêu
+    }
+
+    void OnEnable()
+    {
+        isLive = true;
+        health = maxHealth;
+        currentState = BossState.Idle; // Đặt trạng thái khi kích hoạt lại là nhàn rỗi
+    }
+
+    public void Init(SpawnData data)
+    {
+        anim.runtimeAnimatorController = animCon[data.spriteType];
+        moveSpeed = data.speed;
+        maxHealth = data.health;
+        health = data.health;
+    }
+
+    public void Skill1()
+    {
+        useSkill = true;
+        isAttacking = true;
+        currentState = BossState.UsingSkill; // Đặt trạng thái là sử dụng kỹ năng
+        anim.Play("Mushromm_AttackReady1", -1, 0);
+    }
+
+    public void Skill2()
+    {
+        useSkill = true;
+        isAttacking = true;
+        currentState = BossState.UsingSkill; // Đặt trạng thái là sử dụng kỹ năng
+        anim.Play("Mushromm_AttackReady2", -1, 0);
+    }
+
+    public void StartSkill1()
+    {
+        anim.Play("Mushromm_Attack1", -1, 0);
+    }
+
+    public void StartTimeStop()
+    {
+        StartCoroutine(TimePlay());
+        Debug.Log("StartTimeStop() called");
+    }
+
+public IEnumerator TimePlay()
+{
+    // Kiểm tra nếu trò chơi đang chạy
+    if (GameManager.Instance.isLive)
+    {
+        // Sinh ngẫu nhiên một số nguyên từ mảng {-1, 1} để xác định hướng di chuyển
+        int[] num = new int[] { -1, 1 };
+        
+        // Sinh ngẫu nhiên một chỉ số để lấy hướng di chuyển ngẫu nhiên từ mảng num
+        int wRand = Random.Range(0, num.Length);
+        int hRand = Random.Range(0, num.Length);
+        
+        // Di chuyển boss đến một vị trí mới xung quanh mục tiêu
+        rigid.position = target.position + new Vector2(num[wRand], num[hRand]);
+        
+        // Đặt vận tốc của boss về 0
+        rigid.velocity = Vector2.zero;
+        
+        // Chạy animation "Mushromm_Run"
+        anim.Play("Mushromm_Run");
+        
+        // Chờ cho animation bắt đầu chạy
+        yield return new WaitForEndOfFrame();
+        
+        // Đặt trạng thái của boss về Idle sau khi kết thúc hành động
+        isAttacking = false;
+        currentState = BossState.Idle;
+        
+        // Chờ cho thời gian cooldown trước khi có thể sử dụng kỹ năng tiếp theo
+        yield return new WaitForSeconds(skillCooldown);
+        
+        // Đặt biến useSkill về false để cho phép sử dụng kỹ năng tiếp theo
+        useSkill = false;
+        
+        // Ghi log để kiểm tra hoàn thành coroutine
+        Debug.Log("TimePlay coroutine completed");
+    }
+}
+
+
+    public void PlayRush()
+    {
+        anim.SetBool("doRush", true);
+        StartCoroutine(Rush());
+        Debug.Log("PlayRush() called");
+    }
+
+   public IEnumerator Rush()
+{
+    // Lặp lại hành động tấn công rush 3 lần
+    for (int i = 0; i < 3; i++)
+    {
+        // Xác định vị trí mục tiêu và hướng di chuyển
+        Vector3 targetPosition = target.position;
+        Vector3 dirVec = (targetPosition - transform.position).normalized;
+        
+        // Khởi tạo thời gian và tốc độ rush
+        float time = 0;
+        float rushSpeed = (targetPosition + (dirVec * rushForce) - transform.position).magnitude * Time.fixedDeltaTime;
+        
+        // Thực hiện hành động rush trong một khoảng thời gian nhất định
+        while (time < 1)
+        {
+            Vector2 nextVec = dirVec * rushSpeed;
+            rigid.MovePosition(rigid.position + nextVec);
+            rigid.velocity = Vector2.zero;
+            yield return new WaitForFixedUpdate();
+            time += Time.fixedDeltaTime;
+        }
+        
+        // Chờ một thời gian trước khi thực hiện hành động rush tiếp theo
+        if (i < 2)
+            yield return new WaitForSeconds(0.5f);
+    }
+    
+    // Kết thúc hành động rush và chuyển trạng thái về Idle (nhàn rỗi)
+    anim.SetBool("doRush", false);
+    anim.Play("Mushromm_Run");
+    isAttacking = false;
+    currentState = BossState.Idle;
+    
+    // Chờ một khoảng thời gian cooldown trước khi có thể sử dụng kỹ năng tiếp theo
+    yield return new WaitForSeconds(skillCooldown);
+    
+    // Đặt biến useSkill về false để cho phép sử dụng kỹ năng tiếp theo
+    useSkill = false;
+    
+    // Ghi log để kiểm tra khi coroutine hoàn thành
+    Debug.Log("Rush() coroutine completed");
+}
+
+    void OnTriggerEnter2D(Collider2D collision)
+    {
+        if (!isLive || !GameManager.Instance.isLive)
+            return;
+
+        if (collision.CompareTag("Bullet"))
+        {
+            Bullet bullet = collision.GetComponent<Bullet>();
+            if (bullet != null)
+            {
+                OnDamaged(bullet.damage);
+            }
+        }
+    }
+
+    public void OnDamaged(float damage, float force = 0)
+    {
+        if (currentState == BossState.Dead)
+            return;
+
+        health -= damage;
+        rigid.AddForce((rigid.position - target.position).normalized * force * 500f);
+        FloatDamageText(damage);
+
+        if (health <= 0)
+        {
+            OnDead();
+        }
+        else if (currentState != BossState.UsingSkill)
+        {
+            anim.Play("Mushromm_Hit");
+            currentState = BossState.TakingHit; // Đặt trạng thái là bị tấn công
+        }
+    }
+
+    public void FloatDamageText(float damage)
+    {
+        //GameObject hudText = Instantiate(hudDamageText);
+        //hudText.transform.position = transform.position + Vector3.up * 1.5f;
+    }
+
+    public void OnDead()
+    {
+        isLive = false;
+        currentState = BossState.Dead; // Đặt trạng thái là chết
+        anim.Play("Mushromm_Death");
+        GameManager.Instance.GameVictory();
+    }
+
+    public void SpawnExp()
+    {
+        // Implement the code to spawn experience points
+    }
+}
+

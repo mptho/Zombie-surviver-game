@@ -1,0 +1,50 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+
+public class HUD : MonoBehaviour
+{
+    // Liệt kê các loại thông tin có thể hiển thị trên HUD
+    public enum InfoType { Exp, Level, Kill, Time, Health };
+    public InfoType type; // Loại thông tin
+
+    Text myText; // Tham chiếu đến Text component của HUD (nếu áp dụng)
+    Slider mySlider; // Tham chiếu đến Slider component của HUD (nếu áp dụng)
+
+    void Awake()
+    {
+        myText = GetComponent<Text>(); // Lấy tham chiếu đến Text component
+        mySlider = GetComponent<Slider>(); // Lấy tham chiếu đến Slider component
+    }
+
+    void LateUpdate()
+    {
+        // Xử lý dựa trên loại thông tin
+        switch (type)
+        {
+            case InfoType.Exp: // Hiển thị thông tin EXP
+                float curExp = GameManager.Instance.exp; // EXP hiện tại
+                float maxExp = GameManager.Instance.nextExp[Mathf.Min(GameManager.Instance.level, GameManager.Instance.nextExp.Length - 1)]; // EXP tối đa ở mỗi cấp độ
+                mySlider.value = curExp / maxExp; // Giá trị thanh trượt là tỷ lệ EXP hiện tại so với EXP tối đa
+                break;
+            case InfoType.Level: // Hiển thị cấp độ
+                myText.text = string.Format("Lv.{0:F0}", GameManager.Instance.level); // Hiển thị cấp độ dưới dạng "Lv.xx"
+                break;
+            case InfoType.Kill: // Hiển thị số lần giết
+                myText.text = string.Format("{0:F0}", GameManager.Instance.kill); // Hiển thị số lần giết
+                break;
+            case InfoType.Time: // Hiển thị thời gian còn lại
+                float remainTime = GameManager.Instance.maxGameTime - GameManager.Instance.gameTime; // Thời gian còn lại trong trò chơi
+                int min = Mathf.FloorToInt(remainTime / 60); // Phút còn lại
+                int sec = Mathf.FloorToInt(remainTime % 60); // Giây còn lại
+                myText.text = string.Format("{0:D2}:{1:D2}", min, sec); // Định dạng thời gian còn lại thành "mm:ss"
+                break;
+            case InfoType.Health: // Hiển thị sức khỏe
+                float curHealth = GameManager.Instance.health; // Sức khỏe hiện tại
+                float maxHealth = GameManager.Instance.maxHealth; // Sức khỏe tối đa
+                mySlider.value = curHealth / maxHealth; // Giá trị thanh trượt là tỷ lệ sức khỏe hiện tại so với sức khỏe tối đa
+                break;
+        }
+    }
+}
